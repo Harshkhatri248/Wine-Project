@@ -8,6 +8,14 @@ import json
 
 
 def create_app(config: Optional[dict] = None):
+    # Global error handler to log and display exceptions
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        import traceback
+        tb = traceback.format_exc()
+        app.logger.error(f"Unhandled Exception: {e}\n{tb}")
+        # Show the traceback in the browser for debugging (remove in production)
+        return f"<h2>Internal Server Error</h2><pre>{tb}</pre>", 500
     """Application factory for WSGI servers (e.g. Waitress).
 
     The factory attaches a single-thread ThreadPoolExecutor and a future to the
