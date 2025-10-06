@@ -1,4 +1,4 @@
-﻿from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response
 import concurrent.futures
 import threading
 from typing import Optional
@@ -6,21 +6,10 @@ import logging
 import os
 import json
 
-
 def create_app(config: Optional[dict] = None):
-    # Global error handler to log and display exceptions
-    @app.errorhandler(Exception)
-    def handle_exception(e):
-        import traceback
-        tb = traceback.format_exc()
-        app.logger.error(f"Unhandled Exception: {e}\n{tb}")
-        # Show the traceback in the browser for debugging (remove in production)
-        return f"<h2>Internal Server Error</h2><pre>{tb}</pre>", 500
-    """Application factory for WSGI servers (e.g. Waitress).
+    """Application factory for WSGI servers (e.g. Waitress)."""
 
-    The factory attaches a single-thread ThreadPoolExecutor and a future to the
-    returned app so background model runs are managed on the app object.
-    """
+    # ✅ Create app first
     app = Flask(__name__, template_folder='templates')
 
     if config:
@@ -37,6 +26,15 @@ def create_app(config: Optional[dict] = None):
     app.future_lock = threading.Lock()
     app.future = None
 
+    # ✅ Global error handler (AFTER app is defined)
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        import traceback
+        tb = traceback.format_exc()
+        app.logger.error(f"Unhandled Exception: {e}\n{tb}")
+        # Show the traceback in the browser for debugging (remove in production)
+        return f"<h2>Internal Server Error</h2><pre>{tb}</pre>", 500
+
     # Ensure logs directory exists
     logs_dir = os.path.join(os.path.dirname(__file__), 'logs')
     os.makedirs(logs_dir, exist_ok=True)
@@ -51,6 +49,7 @@ def create_app(config: Optional[dict] = None):
             if app.future is None or app.future.done():
                 if app.model and hasattr(app.model, 'run_model'):
                     app.logger.info('Submitting background model run')
+
                     def _wrap():
                         try:
                             result = app.model.run_model()
@@ -77,7 +76,6 @@ def create_app(config: Optional[dict] = None):
                 output = fut.result()
             except Exception as e:
                 output = f'Model error: {e}'
-            # clear finished future so the user can re-run
             with app.future_lock:
                 app.future = None
         else:
@@ -113,10 +111,8 @@ def create_app(config: Optional[dict] = None):
     return app
 
 
-# Create a module-level app for local runs (python app.py)
+# ✅ Create a module-level app for local runs (python app.py)
 app = create_app()
 
-
 if __name__ == '__main__':
-    # Bind explicitly and disable the debug reloader when starting as a background process on Windows
     app.run(host='127.0.0.1', port=5000, debug=False)
